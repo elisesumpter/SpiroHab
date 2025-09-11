@@ -67,7 +67,7 @@ def clip_flashes(flash_events: list[dict], path: Path):
     video = cv.VideoCapture(path.absolute())
 
     clip_length = 32
-    events_to_clip = [0, 2, 5, 10, 20, 50, 100, 200]
+    events_to_clip = [0, 19, 49, 66, 132, 199, 266, 399]
 
     for i in events_to_clip:
         print(f"Clipping event {i}")
