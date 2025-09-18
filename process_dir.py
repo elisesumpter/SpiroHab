@@ -23,7 +23,7 @@ def process_dir(dir: Path):
     for file in files:
         lr_file = file.parent.absolute() / f"{file.stem}_lr.mp4"
         if not lr_file.exists():
-            ffmpeg.input(str(file.absolute())).filter('scale', 320, -1).output(str(lr_file.absolute())).run()
+            ffmpeg.input(str(file.absolute())).filter('scale', 320, -1).output(str(lr_file.absolute()), vsync="cfr").run()
         process_video(lr_file, file)
 
 if __name__ == "__main__":

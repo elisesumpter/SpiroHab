@@ -14,7 +14,7 @@ def iter_frames(v: cv.VideoCapture) -> Generator[cv.Mat, None, None]:
             break
         yield frame
 
-def detect_flash(baseline: cv.Mat, frame: cv.Mat, threshold=100) -> bool:
+def detect_flash(baseline: cv.Mat, frame: cv.Mat, threshold=60) -> bool:
     """
     Returns true if a flash is detected.
     Runs substraction from baseline, blur, gets max luminance, and returns true is value (0 - 255) is above threshold.
@@ -26,11 +26,12 @@ def detect_flash(baseline: cv.Mat, frame: cv.Mat, threshold=100) -> bool:
 
     # Calculate and blur diff
     diff = cv.absdiff(frame, baseline)
-    diff = cv.blur(diff, (5, 5))
+    diff = cv.blur(diff, (8, 8))
 
     # Show for now to analyze
-    # cv.imshow("diff", diff)
-    # cv.waitKey(0)
+    # if np.amax(diff) > threshold:
+        # cv.imshow("diff", diff)
+        # cv.waitKey(0)
 
     return np.amax(diff) > threshold
 
@@ -40,7 +41,7 @@ def process_video(flash_path: Path, clip_path: Path):
 
     assert(video.isOpened())
     
-    ret, frame1 = video.read()
+    ret, baseline = video.read()
     assert(ret)
 
     flash_events = []
@@ -49,7 +50,7 @@ def process_video(flash_path: Path, clip_path: Path):
     for i, frame in enumerate(iter_frames(video)):
         if i % 1000 == 0:
             print(f"Processing frame {i + 1}")
-        event = detect_flash(frame1, frame)
+        event = detect_flash(baseline, frame)
 
         # If flash just started
         if event and not flashing:
@@ -60,7 +61,13 @@ def process_video(flash_path: Path, clip_path: Path):
         
         if flashing:
             flash_events[-1]["length"] += 1
+        else:
+            # if last flash event was exactly 10 frames ago, get a new baseline
+            if len(flash_events) > 0 and (i + 1) - flash_events[-1]["index"] == 20:
+                baseline = np.mean([baseline, frame], axis=0)
+                baseline = frame
 
+    print(f"Found {len(flash_events)} flashes")
     clip_flashes(flash_events, clip_path)
 
 def clip_flashes(flash_events: list[dict], path: Path):
@@ -86,9 +93,12 @@ def clip_flashes(flash_events: list[dict], path: Path):
         cv.imwritemulti(str(out.absolute()), frames)
 
 if __name__ == "__main__":
+    import ffmpeg
     video_path = Path("input.mp4")
+    video_path_low_res = Path("input_lr.mp4")
     # Convert with
     # winget install ffmpeg (only once ofc)
-    # ffmpeg -i input.mp4 -vf "scale=320:-1" input_lr.mp4
-    video_path_low_res = Path("input_lr.mp4")
+    # ffmpeg -i input.mp4 -vf "scale=320:-1 fps=fps=source_fps" input_lr.mp4
+    if not video_path_low_res.exists():
+        ffmpeg.input(str(video_path.absolute())).filter('scale', 320, -1).output(str(video_path_low_res.absolute()), vsync="cfr").run()
     output = process_video(video_path_low_res, video_path)
