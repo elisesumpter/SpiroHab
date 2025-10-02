@@ -3,8 +3,10 @@ from typing import Generator
 import cv2 as cv  # For loading/processing video/images
 import numpy as np  # For matrix operations
 
+type Mat = cv.typing.MatLike
+
 # We have to do this with a generator due to video size
-def iter_frames(v: cv.VideoCapture) -> Generator[cv.Mat, None, None]:
+def iter_frames(v: cv.VideoCapture) -> Generator[Mat, None, None]:
     """
     Read one frame at a time.
     """
@@ -14,7 +16,7 @@ def iter_frames(v: cv.VideoCapture) -> Generator[cv.Mat, None, None]:
             break
         yield frame
 
-def get_relative_maximum_brightness(baseline: cv.Mat, frame: cv.Mat) -> float:
+def get_relative_maximum_brightness(baseline: Mat, frame: Mat) -> float:
     """
     Get the maximum brightness of frame compared to baseline.
     Returns the brightness (0-255) of the brightest pixel in the blurred absolute difference of the images in black and white.
@@ -32,7 +34,7 @@ def get_relative_maximum_brightness(baseline: cv.Mat, frame: cv.Mat) -> float:
     #     cv.imshow("diff", diff)
     #     cv.waitKey(0)
 
-    return np.amax(diff)
+    return float(np.amax(diff))
 
 def get_flash_events(video: cv.VideoCapture, threshold=60) -> list[dict]:
     """
@@ -67,7 +69,7 @@ def get_flash_events(video: cv.VideoCapture, threshold=60) -> list[dict]:
         else:
             # if last flash event was exactly 20 frames ago and there's no flash now, average the old baseline with the current frame
             if len(flash_events) > 0 and (i + 1) - flash_events[-1]["index"] == 20:
-                baseline = np.mean([baseline, frame], axis=0)
+                baseline = np.mean([baseline, frame], axis=0)  # type: ignore[arg-type]
                 baseline = frame
 
     return flash_events
@@ -99,7 +101,7 @@ def process_video(flash_path: Path, clip_path: Path):
     """
     Find flashes and create clips. 
     """
-    flash_video = cv.VideoCapture(flash_path.absolute())
+    flash_video = cv.VideoCapture(str(flash_path.absolute()))
     assert(flash_video.isOpened())
 
     flash_events = get_flash_events(flash_video)
@@ -108,11 +110,11 @@ def process_video(flash_path: Path, clip_path: Path):
     if input("Create clips? [y/n]") == "y":
         
         out_folder = clip_path.parent / clip_path.stem
-        clip_video = cv.VideoCapture(clip_path.absolute())
+        clip_video = cv.VideoCapture(str(clip_path.absolute()))
         clip_flashes(flash_events, clip_video, out_folder)
 
 if __name__ == "__main__":
-    import ffmpeg
+    import ffmpeg  # type: ignore[import-untyped]
     video_path = Path("input.mp4")
     video_path_low_res = Path("input_lr.mp4")
 
