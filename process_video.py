@@ -14,7 +14,7 @@ def iter_frames(v: cv.VideoCapture) -> Generator[cv.Mat, None, None]:
             break
         yield frame
 
-def detect_flash(baseline: cv.Mat, frame: cv.Mat, threshold=60) -> bool:
+def detect_flash(baseline: cv.Mat, frame: cv.Mat, threshold=60) -> bool: #normally 60
     """
     Returns true if a flash is detected.
     Runs substraction from baseline, blur, gets max luminance, and returns true is value (0 - 255) is above threshold.
@@ -28,10 +28,10 @@ def detect_flash(baseline: cv.Mat, frame: cv.Mat, threshold=60) -> bool:
     diff = cv.absdiff(frame, baseline)
     diff = cv.blur(diff, (8, 8))
 
-    # Show for now to analyze
+    # # Show for now to analyze
     # if np.amax(diff) > threshold:
-        # cv.imshow("diff", diff)
-        # cv.waitKey(0)
+    #     cv.imshow("diff", diff)
+    #     cv.waitKey(0)
 
     return np.amax(diff) > threshold
 
@@ -74,7 +74,15 @@ def clip_flashes(flash_events: list[dict], path: Path):
     video = cv.VideoCapture(path.absolute())
 
     clip_length = 32
-    events_to_clip = [0, 19, 49, 66, 132, 199, 266, 399]
+    events_to_clip = [0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400]       # 0, 4, 9, 19, 29, 49, 74, 99, 149, 199, 149, 299, 249, 349, 398,
+
+# 0.333 : 0, 4, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400, 404, 409
+# 0.111 Hz : 0, 4, 9, 19, 29, 39, 49, 59, 69, 79, 89, 99, 109, 119, 129, 133, 134, 138, 143
+# 1 Hz : 0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 499, 599, 699, 799, 899, 999, 1099, 1199, 1200, 1209, 1219, 1229
+# 0.033 Hz : 0, 4, 9, 14, 19, 24, 29, 34, 39, 40, 44, 49
+# FatigueCheck : 0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400
+# VoltageTest : 0, 4, 9
+
 
     for i in events_to_clip:
         print(f"Clipping event {i}")
