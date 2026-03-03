@@ -79,7 +79,15 @@ def clip_flashes(flash_events: list[dict], video: cv.VideoCapture, output_folder
     For some events in flash_events, creates a clip in .tiff file format of the flash with some frames before and after the event.
     """
     clip_length = 32
-    events_to_clip = [0, 19, 49, 66, 132, 199, 266, 399]
+    events_to_clip = [0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400]       # 0, 4, 9, 19, 29, 49, 74, 99, 149, 199, 149, 299, 249, 349, 398,
+
+# 0.333 : 0, 4, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400, 404, 409
+# 0.111 Hz : 0, 4, 9, 19, 29, 39, 49, 59, 69, 79, 89, 99, 109, 119, 129, 133, 134, 138, 143
+# 1 Hz : 0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 499, 599, 699, 799, 899, 999, 1099, 1199, 1200, 1209, 1219, 1229
+# 0.033 Hz : 0, 4, 9, 14, 19, 24, 29, 34, 39, 40, 44, 49
+# FatigueCheck : 0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400
+# VoltageTest : 0, 4, 9
+
 
     for i in events_to_clip:
         print(f"Clipping event {i}")
