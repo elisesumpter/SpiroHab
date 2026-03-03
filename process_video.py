@@ -1,9 +1,11 @@
 from pathlib import Path
 from typing import Generator
+
 import cv2 as cv  # For loading/processing video/images
 import numpy as np  # For matrix operations
 
 type Mat = cv.typing.MatLike
+
 
 # We have to do this with a generator due to video size
 def iter_frames(v: cv.VideoCapture) -> Generator[Mat, None, None]:
@@ -15,6 +17,7 @@ def iter_frames(v: cv.VideoCapture) -> Generator[Mat, None, None]:
         if not ret:
             break
         yield frame
+
 
 def get_relative_maximum_brightness(baseline: Mat, frame: Mat) -> float:
     """
@@ -36,11 +39,12 @@ def get_relative_maximum_brightness(baseline: Mat, frame: Mat) -> float:
 
     return float(np.amax(diff))
 
+
 def get_flash_events(video: cv.VideoCapture, threshold=60) -> list[dict]:
     """
     Checks each frame of the video for flashes above the threshold, and returns a list of dicts with fields:
     - index: frame on which the flash started
-    - length: duration of the flash event  
+    - length: duration of the flash event
     """
 
     # Read the first frame to get a baseline with no flash (hopefully)
@@ -63,7 +67,7 @@ def get_flash_events(video: cv.VideoCapture, threshold=60) -> list[dict]:
             flashing = True
         elif not event and flashing:
             flashing = False
-        
+
         if flashing:
             flash_events[-1]["length"] += 1
         else:
@@ -74,59 +78,64 @@ def get_flash_events(video: cv.VideoCapture, threshold=60) -> list[dict]:
 
     return flash_events
 
+
 def clip_flashes(flash_events: list[dict], video: cv.VideoCapture, output_folder: Path):
     """
     For some events in flash_events, creates a clip in .tiff file format of the flash with some frames before and after the event.
     """
-    clip_length = 32
-    events_to_clip = [0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400]       # 0, 4, 9, 19, 29, 49, 74, 99, 149, 199, 149, 299, 249, 349, 398,
+    events_to_clip = [0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400]
 
-# 0.333 : 0, 4, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400, 404, 409
-# 0.111 Hz : 0, 4, 9, 19, 29, 39, 49, 59, 69, 79, 89, 99, 109, 119, 129, 133, 134, 138, 143
-# 1 Hz : 0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 499, 599, 699, 799, 899, 999, 1099, 1199, 1200, 1209, 1219, 1229
-# 0.033 Hz : 0, 4, 9, 14, 19, 24, 29, 34, 39, 40, 44, 49
-# FatigueCheck : 0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400
-# VoltageTest : 0, 4, 9
-
+    # 0, 4, 9, 19, 29, 49, 74, 99, 149, 199, 149, 299, 249, 349, 398,
+    # 0.333 : 0, 4, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400, 404, 409
+    # 0.111 Hz : 0, 4, 9, 19, 29, 39, 49, 59, 69, 79, 89, 99, 109, 119, 129, 133, 134, 138, 143
+    # 1 Hz : 0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 499, 599, 699, 799, 899, 999, 1099, 1199, 1200, 1209, 1219, 1229
+    # 0.033 Hz : 0, 4, 9, 14, 19, 24, 29, 34, 39, 40, 44, 49
+    # FatigueCheck : 0, 9, 19, 29, 49, 74, 99, 149, 199, 249, 299, 349, 399, 400
+    # VoltageTest : 0, 4, 9
 
     for i in events_to_clip:
         print(f"Clipping event {i}")
-        event = flash_events[i]
-        frames = []
-        video.set(cv.CAP_PROP_POS_FRAMES, int(event["index"] - clip_length / 2) - 1)
-        for j in range(clip_length):
-            ret, frame = video.read()
-            assert(ret)  # If this fails, we're probably at the end of the video. Don't clip last flash
-            frames.append(frame)
-        
-        out = output_folder / f"{i}.tiff"
+        clip_event(video, flash_events[i], output_folder / f"{i}.tiff")
 
-        if not out.parent.exists():
-            out.parent.mkdir()
-        cv.imwritemulti(str(out.absolute()), frames)
+
+def clip_event(video: cv.VideoCapture, event: dict[str, int], output_file: Path):
+    clip_length = 32
+    frames = []
+    video.set(cv.CAP_PROP_POS_FRAMES, int(event["index"] - clip_length / 2) - 1)
+    for j in range(clip_length):
+        ret, frame = video.read()
+        assert ret  # If this fails, we're probably at the end of the video. Don't clip last flash
+        frames.append(frame)
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    cv.imwritemulti(str(output_file.absolute()), frames)
+
 
 def process_video(flash_path: Path, clip_path: Path):
     """
-    Find flashes and create clips. 
+    Find flashes and create clips.
     """
     flash_video = cv.VideoCapture(str(flash_path.absolute()))
-    assert(flash_video.isOpened())
+    assert flash_video.isOpened()
 
     flash_events = get_flash_events(flash_video)
     print(f"Found {len(flash_events)} flashes.")
 
     if input("Create clips? [y/n]") == "y":
-        
         out_folder = clip_path.parent / clip_path.stem
         clip_video = cv.VideoCapture(str(clip_path.absolute()))
         clip_flashes(flash_events, clip_video, out_folder)
 
+
 if __name__ == "__main__":
     import ffmpeg  # type: ignore[import-untyped]
+
     video_path = Path("input.mp4")
     video_path_low_res = Path("input_lr.mp4")
 
     if not video_path_low_res.exists():
-        ffmpeg.input(str(video_path.absolute())).filter('scale', 320, -1).output(str(video_path_low_res.absolute()), vsync="cfr").run()
+        ffmpeg.input(str(video_path.absolute())).filter("scale", 320, -1).output(
+            str(video_path_low_res.absolute()), vsync="cfr"
+        ).run()
 
     output = process_video(video_path_low_res, video_path)
